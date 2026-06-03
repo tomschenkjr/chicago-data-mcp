@@ -15,25 +15,23 @@ mcp = FastMCP(
 )
 
 DOMAIN = "data.cityofchicago.org"
-HEADERS = {"User-Agent": "chicago-data-mcp/1.0 (opengrid deployment)"}
 
 _app_token = os.getenv("SOCRATA_APP_TOKEN", "").strip()
 _secret_token = os.getenv("SOCRATA_SECRET_TOKEN", "").strip()
 
-# Basic Auth uses app_token as username and secret_token as password.
-# If only the app token is present it is sent as a query param for rate-limit
-# headroom without requiring authentication.
+# X-App-Token header is sent whenever the app token is available.
+# Authorization: Basic is sent in addition when the secret token is also set,
+# using the app token as username and secret token as password.
+_headers = {"User-Agent": "chicago-data-mcp/1.0 (opengrid deployment)"}
+if _app_token:
+    _headers["X-App-Token"] = _app_token
+
 _auth = (_app_token, _secret_token) if (_app_token and _secret_token) else None
-_token_param = _app_token if (_app_token and not _secret_token) else None
 
 
 async def _get(url: str, params: dict = None) -> dict | list:
-    if params is None:
-        params = {}
-    if _token_param:
-        params["$$app_token"] = _token_param
-    async with httpx.AsyncClient(headers=HEADERS, auth=_auth, timeout=30) as client:
-        r = await client.get(url, params=params)
+    async with httpx.AsyncClient(headers=_headers, auth=_auth, timeout=30) as client:
+        r = await client.get(url, params=params or {})
         r.raise_for_status()
         return r.json()
 
