@@ -17,20 +17,16 @@ mcp = FastMCP(
 DOMAIN = "data.cityofchicago.org"
 
 _app_token = os.getenv("SOCRATA_APP_TOKEN", "").strip()
-_secret_token = os.getenv("SOCRATA_SECRET_TOKEN", "").strip()
 
-# X-App-Token header is sent whenever the app token is available.
-# Authorization: Basic is sent in addition when the secret token is also set,
-# using the app token as username and secret token as password.
+# Only X-App-Token is needed for public read-only Socrata data.
+# The Secret Token is for OAuth write flows only — not used here.
 _headers = {"User-Agent": "chicago-data-mcp/1.0 (opengrid deployment)"}
 if _app_token:
     _headers["X-App-Token"] = _app_token
 
-_auth = (_app_token, _secret_token) if (_app_token and _secret_token) else None
-
 
 async def _get(url: str, params: dict = None) -> dict | list:
-    async with httpx.AsyncClient(headers=_headers, auth=_auth, timeout=30) as client:
+    async with httpx.AsyncClient(headers=_headers, timeout=30) as client:
         r = await client.get(url, params=params or {})
         r.raise_for_status()
         return r.json()
