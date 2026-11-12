@@ -32,6 +32,14 @@ async def _get(url: str, params: dict = None) -> dict | list:
         return r.json()
 
 
+def _category(result: dict) -> str | None:
+    """Dataset category. The catalog API now leaves `categories` empty and
+    puts the portal category in `domain_category`."""
+    classification = result.get("classification", {})
+    categories = classification.get("categories") or [None]
+    return classification.get("domain_category") or categories[0]
+
+
 @mcp.tool()
 async def search_chicago_datasets(query: str, limit: int = 10) -> list[dict]:
     """
@@ -51,7 +59,7 @@ async def search_chicago_datasets(query: str, limit: int = 10) -> list[dict]:
             "id": r.get("resource", {}).get("id"),
             "name": r.get("resource", {}).get("name"),
             "description": r.get("resource", {}).get("description"),
-            "category": r.get("classification", {}).get("categories", [None])[0],
+            "category": _category(r),
             "type": r.get("resource", {}).get("type"),
             "permalink": r.get("permalink"),
             "updated_at": r.get("resource", {}).get("updatedAt"),

@@ -7,7 +7,9 @@ import os
 from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.responses import Response
 from mcp.server.sse import SseServerTransport
+from starlette.routing import Mount
 from server import mcp
 
 
@@ -34,13 +36,16 @@ async def handle_sse(request: Request):
             streams[0], streams[1],
             mcp._mcp_server.create_initialization_options()
         )
+    # The SSE transport already sent the response; return an empty one so
+    # the framework does not try to start a second response.
+    return Response()
 
 
-@app.post("/messages/")
-async def handle_messages(request: Request):
-    await sse_transport.handle_post_message(
-        request.scope, request.receive, request._send
-    )
+# Client-to-server MCP messages. handle_post_message is a raw ASGI app that
+# writes its own 202 response, so mount it directly rather than wrapping it
+# in a FastAPI route (which would attempt to send a second response and cause
+# uvicorn to reset the keep-alive connection, dropping later messages).
+app.router.routes.append(Mount("/messages/", app=sse_transport.handle_post_message))
 
 
 def run():
